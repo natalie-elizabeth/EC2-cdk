@@ -1,0 +1,3 @@
+{
+  "app": "npx ts-node bin/e_c2-cdk.ts"
+}
