@@ -43,18 +43,37 @@ export class Ec2CdkStack extends cdk.Stack {
           groupSet: [SecurityGroup.securityGroupId]
         }
       ]
-    })
+    });
+
     // Docdb must have a DB subnet group and uses that and your AZ to select a subnet and IP to associate your cluster
-    const sfdocCluster = new docdb.CfnDBCluster(this, "SfDocCluster", {
+    // Each subnet should have at least 2 AZ in a region. 
+    // Subnet 
+
+    const natsubnetGroup = new docdb.CfnDBSubnetGroup(this, "nat-subnet-group", {
+      subnetIds: vpc.privateSubnets.map(x => x.subnetId),
+      dbSubnetGroupName: "nat-subnet-group",
+      dbSubnetGroupDescription: "Subnet Group for DocDB"
+    });
+
+    const natdocCluster = new docdb.CfnDBCluster(this, "nat-doc-cluster", {
       storageEncrypted: true,
       availabilityZones: vpc.availabilityZones.splice(3),
-      dbClusterIdentifier: "sf-docdb-cluster",
+      dbClusterIdentifier: "nat-docdb-cluster",
       masterUsername: process.env.MASTER_USERNAME,
       masterUserPassword: process.env.MASTER_PASSWORD,
       vpcSecurityGroupIds: [SecurityGroup.securityGroupName],
+      dbSubnetGroupName: natsubnetGroup.dbSubnetGroupName,
       port
-    })
+    });
+    natdocCluster.addDependsOn(natsubnetGroup);
 
-
+    // Create primary instance which if it fails, Docdb can promote a corresponding replica
+    const natdbInstance = new docdb.CfnDBInstance(this, "nat-doc-instance", {
+      dbClusterIdentifier: natdocCluster.ref,
+      dbInstanceClass: "db.r5.large",
+      dbInstanceIdentifier: "nat-doc-instance",
+      autoMinorVersionUpgrade: true
+    });
+    natdbInstance.addDependsOn(natdocCluster)
   }
 }
