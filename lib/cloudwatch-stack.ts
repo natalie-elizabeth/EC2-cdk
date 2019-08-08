@@ -1,6 +1,6 @@
 import cdk = require('@aws-cdk/core');
 import cloudwatch = require('@aws-cdk/aws-cloudwatch');
-import { GraphWidget, Metric } from '@aws-cdk/aws-cloudwatch';
+import { GraphWidget, Metric, AlarmWidget } from '@aws-cdk/aws-cloudwatch';
 
 export class CloudwatchAppStack extends cdk.Stack {
     constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
@@ -10,6 +10,13 @@ export class CloudwatchAppStack extends cdk.Stack {
             namespace: 'AWS/SQS',
             metricName: 'ApproximateNumberOfMessagesVisible',
         });
+
+        const alarm = new cloudwatch.Alarm(this, 'SfAlarm', {
+            metric: metric,
+            threshold: 100,
+            evaluationPeriods: 3,
+            datapointsToAlarm: 2
+        })
 
         const sfdashboard = new cloudwatch.Dashboard(this, 'SfDashboard', {
             dashboardName: 'SfDashboard'
@@ -21,5 +28,9 @@ export class CloudwatchAppStack extends cdk.Stack {
             right: [metric]
 
         }));
+        sfdashboard.addWidgets(new AlarmWidget({
+            title: "Alarm Widget",
+            alarm
+        }))
     }
 }
